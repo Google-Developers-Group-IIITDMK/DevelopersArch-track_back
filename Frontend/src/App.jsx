@@ -1,10 +1,10 @@
 import React from "react";
-import AuthPage from "./pages/AuthPages";
+import HomePage from "./pages/HomePage";
+import AboutPage from "./pages/AboutPage";
 
 const App = () => {
   return (
     <div>
-      <AuthPage />
     </div>
   );
 };
