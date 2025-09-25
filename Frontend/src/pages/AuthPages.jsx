@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authAPI, storage } from "../services/api.js";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -8,6 +9,8 @@ export default function AuthPage() {
     password: "",
     showPassword: false,
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -15,6 +18,7 @@ export default function AuthPage() {
       ...prev,
       [name]: value,
     }));
+    if (error) setError("");
   };
 
   const togglePasswordVisibility = () => {
@@ -32,19 +36,41 @@ export default function AuthPage() {
       password: "",
       showPassword: false,
     });
+    setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isLogin) {
-      console.log("Login attempt with:", {
-        email: formData.email,
-        password: formData.password,
-      });
-      // Login logic will be added later here
-    } else {
-      console.log("Register attempt with:", formData);
-      // Registration logic will be added later here
+    setLoading(true);
+    setError("");
+
+    try {
+      if (isLogin) {
+        const { email, password } = formData;
+        const response = await authAPI.login({ email, password });
+
+
+        storage.setToken(response.token);
+
+        console.log("Login successful:", response);
+
+        alert(`Welcome back, ${response.user.name}!`);
+      } else {
+        const { name, email, password } = formData;
+        const response = await authAPI.register({ name, email, password });
+
+        storage.setToken(response.token);
+
+        console.log("Registration successful:", response);
+        alert(`Account created successfully! Welcome, ${response.user.name}`);
+
+        handleFormSwitch(true);
+      }
+    } catch (err) {
+      setError(err.message);
+      console.error("Auth error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,6 +93,12 @@ export default function AuthPage() {
                 : "Join Track Back and never lose track again."}
             </p>
           </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+              {error}
+            </div>
+          )}
 
           <div className="mb-8 relative w-full bg-black/30 rounded-lg p-1 flex">
             <div
@@ -106,6 +138,7 @@ export default function AuthPage() {
                   onChange={handleInputChange}
                   className="w-full bg-white/10 border border-white/20 rounded-lg h-14 pl-10 pr-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#5a2aea] transition-all duration-300"
                   required
+                  disabled={loading}
                 />
               </div>
               <div className="relative">
@@ -120,9 +153,10 @@ export default function AuthPage() {
                   onChange={handleInputChange}
                   className="w-full bg-white/10 border border-white/20 rounded-lg h-14 pl-10 pr-10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#5a2aea] transition-all duration-300"
                   required
+                  disabled={loading}
                 />
                 <span
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 password-toggle"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 password-toggle cursor-pointer"
                   onClick={togglePasswordVisibility}
                 >
                   {formData.showPassword ? "🙈" : "👁️"}
@@ -130,9 +164,10 @@ export default function AuthPage() {
               </div>
               <button
                 type="submit"
-                className="w-full bg-[#5a2aea] text-white font-bold h-12 rounded-lg transition-all duration-300 hover:shadow-[0_0_15px_#5a2aea]"
+                disabled={loading}
+                className="w-full bg-[#5a2aea] text-white font-bold h-12 rounded-lg transition-all duration-300 hover:shadow-[0_0_15px_#5a2aea] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Login
+                {loading ? "Logging in..." : "Login"}
               </button>
             </form>
           ) : (
@@ -149,6 +184,7 @@ export default function AuthPage() {
                   onChange={handleInputChange}
                   className="w-full bg-white/10 border border-white/20 rounded-lg h-14 pl-10 pr-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#5a2aea] transition-all duration-300"
                   required
+                  disabled={loading}
                 />
               </div>
               <div className="relative">
@@ -163,6 +199,7 @@ export default function AuthPage() {
                   onChange={handleInputChange}
                   className="w-full bg-white/10 border border-white/20 rounded-lg h-14 pl-10 pr-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#5a2aea] transition-all duration-300"
                   required
+                  disabled={loading}
                 />
               </div>
               <div className="relative">
@@ -177,9 +214,10 @@ export default function AuthPage() {
                   onChange={handleInputChange}
                   className="w-full bg-white/10 border border-white/20 rounded-lg h-14 pl-10 pr-10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#5a2aea] transition-all duration-300"
                   required
+                  disabled={loading}
                 />
                 <span
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 password-toggle"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 password-toggle cursor-pointer"
                   onClick={togglePasswordVisibility}
                 >
                   {formData.showPassword ? "🙈" : "👁️"}
@@ -187,9 +225,10 @@ export default function AuthPage() {
               </div>
               <button
                 type="submit"
-                className="w-full bg-[#5a2aea] text-white font-bold h-12 rounded-lg transition-all duration-300 hover:shadow-[0_0_15px_#5a2aea]"
+                disabled={loading}
+                className="w-full bg-[#5a2aea] text-white font-bold h-12 rounded-lg transition-all duration-300 hover:shadow-[0_0_15px_#5a2aea] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Register
+                {loading ? "Creating Account..." : "Register"}
               </button>
             </form>
           )}
