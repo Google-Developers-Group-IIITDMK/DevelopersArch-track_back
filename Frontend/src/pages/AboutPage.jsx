@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export default function AboutPage() {
   const faqs = [
     {
@@ -30,25 +32,19 @@ export default function AboutPage() {
             href="#"
             className="relative text-lg text-gray-600 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
           >
-            Home
+            <Link to="/">Home</Link>
           </a>
           <a
             href="#"
             className="relative text-lg text-gray-600 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
           >
-            About
+            <Link to="/about">About</Link>
           </a>
           <a
             href="#"
             className="relative text-lg text-gray-600 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
           >
-            Products
-          </a>
-          <a
-            href="#"
-            className="relative text-lg text-gray-600 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
-          >
-            Contact
+            <Link to="/reports">Reports</Link>
           </a>
         </nav>
       </div>
@@ -89,7 +85,7 @@ export default function AboutPage() {
               community reunite with their belongings.
             </p>
             <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded font-medium">
-              Get started
+              <Link to="/auth">Get Started</Link>
             </button>
           </div>
 

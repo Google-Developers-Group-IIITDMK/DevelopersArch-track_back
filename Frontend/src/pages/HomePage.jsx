@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export default function HomePage() {
   return (
     <div className="bg-[#000000] font-body text-slate-300 flex flex-col min-h-screen">
@@ -7,25 +9,19 @@ export default function HomePage() {
             href="#"
             className="relative text-lg text-gray-600 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
           >
-            Home
+            <Link to="/">Home</Link>
           </a>
           <a
             href="#"
             className="relative text-lg text-gray-600 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
           >
-            About
+            <Link to="/about">About</Link>
           </a>
           <a
             href="#"
             className="relative text-lg text-gray-600 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
           >
-            Products
-          </a>
-          <a
-            href="#"
-            className="relative text-lg text-gray-600 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
-          >
-            Contact
+            <Link to="/reports">Reports</Link>
           </a>
         </nav>
       </header>
@@ -42,7 +38,7 @@ export default function HomePage() {
             href="#"
             className="inline-block px-10 py-4 rounded-lg bg-teal-500/20 text-white text-lg font-bold leading-normal tracking-wide shadow-lg hover:bg-teal-400/30 focus:outline-none focus:ring-4 focus:ring-teal-500/50 transition-all duration-300 border border-teal-500/50 [box-shadow:0_0_5px_#38bdf8,0_0_10px_#38bdf8,0_0_15px_#818cf8,0_0_20px_#818cf8]"
           >
-            Get Started
+            <Link to="/auth">Get Started</Link>
           </a>
         </div>
       </main>
