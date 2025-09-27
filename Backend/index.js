@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import itemRoutes from "./routes/itemRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import messageRoutes from "./routes/messageRoutes.js";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/items", itemRoutes);
+app.use("/api/messages", messageRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI)
