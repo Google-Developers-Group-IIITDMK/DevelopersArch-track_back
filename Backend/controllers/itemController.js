@@ -84,14 +84,29 @@ export const updateItem = async (req, res) => {
 export const deleteItem = async (req, res) => {
   try {
     const item = await ItemReport.findById(req.params.id);
-    if (!item) return res.status(404).json({ message: "Item not found" });
-    if (item.user.toString() !== req.user.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
 
-    if (item.imageId) await cloudinary.uploader.destroy(item.imageId);
+    if (item.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    await item.remove();
-    res.json({ message: "Item deleted" });
+    if (item.imageId) {
+      try {
+        await cloudinary.uploader.destroy(item.imageId);
+      } catch (cloudinaryError) {
+        console.error("Error deleting image from Cloudinary:", cloudinaryError);
+      }
+    }
+    await ItemReport.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "Item deleted successfully" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error in deleteItem:", err);
+    res.status(500).json({
+      error: "Internal server error",
+      details: err.message,
+    });
   }
 };
