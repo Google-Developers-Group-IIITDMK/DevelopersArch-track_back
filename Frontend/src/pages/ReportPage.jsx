@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import { itemsAPI } from "../services/api";
+import { itemsAPI, messageAPI } from "../services/api";
 
 const ReportPage = () => {
   const [reports, setReports] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [messages, setMessages] = useState({});
+  const [newMessage, setNewMessage] = useState("");
   const [newReport, setNewReport] = useState({
     type: "lost",
     title: "",
@@ -15,6 +18,7 @@ const ReportPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [messageLoading, setMessageLoading] = useState(false);
   const [error, setError] = useState("");
 
   const { currentUser, logout } = useAuth();
@@ -41,14 +45,12 @@ const ReportPage = () => {
         image:
           item.image ||
           "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
-        status: "active",
-        buttons: ["Message"],
         authorId: item.user._id,
         authorName: item.user.name,
-        authorButtons: ["Resolved", "Delete"],
         isResolved: false,
         resolvedAt: null,
         createdAt: item.createdAt,
+        messageCount: 0, // Initialize message count
       }));
 
       setReports(transformedReports);
@@ -58,6 +60,84 @@ const ReportPage = () => {
     } finally {
       setFetchLoading(false);
     }
+  };
+
+  const fetchMessages = async (reportId) => {
+    try {
+      const data = await messagesAPI.getMessages(reportId);
+      setMessages((prev) => ({
+        ...prev,
+        [reportId]: data,
+      }));
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+    }
+  };
+
+  const handleSendMessage = async (reportId) => {
+    if (!newMessage.trim()) return;
+
+    try {
+      setMessageLoading(true);
+      const response = await messagesAPI.sendMessage(reportId, {
+        message: newMessage,
+        isPublic: true,
+      });
+
+      setMessages((prev) => ({
+        ...prev,
+        [reportId]: [...(prev[reportId] || []), response.message],
+      }));
+
+      setNewMessage("");
+
+      setReports((prev) =>
+        prev.map((report) =>
+          report.id === reportId
+            ? { ...report, messageCount: (report.messageCount || 0) + 1 }
+            : report
+        )
+      );
+    } catch (err) {
+      setError("Failed to send message: " + err.message);
+    } finally {
+      setMessageLoading(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId, reportId) => {
+    try {
+      await messagesAPI.deleteMessage(messageId);
+
+      setMessages((prev) => ({
+        ...prev,
+        [reportId]: prev[reportId].filter((msg) => msg._id !== messageId),
+      }));
+
+      setReports((prev) =>
+        prev.map((report) =>
+          report.id === reportId
+            ? {
+                ...report,
+                messageCount: Math.max(0, (report.messageCount || 0) - 1),
+              }
+            : report
+        )
+      );
+    } catch (err) {
+      setError("Failed to delete message: " + err.message);
+    }
+  };
+
+  const openMessagePanel = (report) => {
+    setSelectedReport(report);
+    if (!messages[report.id]) {
+      fetchMessages(report.id);
+    }
+  };
+
+  const closeMessagePanel = () => {
+    setSelectedReport(null);
   };
 
   const getButtonClass = (buttonText) => {
@@ -302,6 +382,19 @@ const ReportPage = () => {
           )}
         </div>
       </main>
+      {selectedReport && (
+        <MessagePanel
+          report={selectedReport}
+          messages={messages[selectedReport.id] || []}
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          onSendMessage={handleSendMessage}
+          onDeleteMessage={handleDeleteMessage}
+          onClose={closeMessagePanel}
+          currentUser={currentUser}
+          loading={messageLoading}
+        />
+      )}
     </div>
   );
 };
@@ -433,24 +526,11 @@ const CreateReportForm = ({
   );
 };
 
-const ReportCard = ({
-  report,
-  getButtonClass,
-  handleButtonClick,
-  currentUser,
-  handleResolveReport,
-  handleUnresolveReport,
-}) => {
+const ReportCard = ({ report, onMessageClick, currentUser, messageCount }) => {
   const isAuthor = report.authorId === currentUser.id;
 
   return (
-    <div
-      className={`bg-gray-800 rounded-xl shadow-lg overflow-hidden border transition-all duration-300 ${
-        report.isResolved
-          ? "border-green-500/30 hover:border-green-500/50"
-          : "border-gray-700 hover:border-gray-600"
-      }`}
-    >
+    <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700 hover:border-gray-600 transition-all duration-300">
       <div className="p-6 flex flex-col h-full">
         <div className="flex-1">
           <div className="flex justify-between items-start mb-2">
@@ -481,6 +561,7 @@ const ReportCard = ({
           </p>
           <div className="mt-2 space-y-1">
             <p className="text-gray-500 text-xs">By: {report.authorName}</p>
+            <p className="text-blue-400 text-xs">Messages: {messageCount}</p>
             {report.isResolved && report.resolvedAt && (
               <p className="text-green-500 text-xs">
                 Resolved on: {report.resolvedAt}
@@ -489,49 +570,112 @@ const ReportCard = ({
           </div>
         </div>
         <div className="mt-6 flex gap-2">
-          {report.buttons.map((buttonText) => (
-            <button
-              key={buttonText}
-              className={getButtonClass(buttonText)}
-              onClick={() => handleButtonClick(buttonText, report.id)}
-            >
-              {buttonText}
-            </button>
-          ))}
-
-          {isAuthor &&
-            report.authorButtons &&
-            report.authorButtons.map((buttonText) => (
-              <button
-                key={buttonText}
-                className={getButtonClass(buttonText)}
-                onClick={() => handleButtonClick(buttonText, report.id)}
-              >
-                {buttonText}
-              </button>
-            ))}
-
-          {isAuthor && report.isResolved && (
-            <button
-              className="flex-1 text-center font-bold py-2 px-4 rounded-lg text-sm transition-colors bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
-              onClick={() => handleUnresolveReport(report.id)}
-            >
-              Reopen
+          <button
+            onClick={() => onMessageClick(report)}
+            className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-center font-bold py-2 px-4 rounded-lg text-sm transition-colors"
+          >
+            💬 Message
+          </button>
+          {isAuthor && (
+            <button className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-center font-bold py-2 px-4 rounded-lg text-sm transition-colors">
+              Delete
             </button>
           )}
         </div>
       </div>
       <div
-        className="h-48 bg-cover bg-center relative"
+        className="h-48 bg-cover bg-center"
         style={{ backgroundImage: `url("${report.image}")` }}
-      >
-        {report.isResolved && (
-          <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
-            <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-bold">
-              RESOLVED
-            </span>
+      />
+    </div>
+  );
+};
+
+const MessagePanel = ({
+  report,
+  messages,
+  newMessage,
+  setNewMessage,
+  onSendMessage,
+  onDeleteMessage,
+  onClose,
+  currentUser,
+  loading,
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div className="p-6 border-b border-gray-700">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-100">
+              Messages for: {report.title}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white text-2xl"
+            >
+              ×
+            </button>
           </div>
-        )}
+          <p className="text-gray-400 text-sm">Type: {report.type}</p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.length === 0 ? (
+            <p className="text-gray-400 text-center">
+              No messages yet. Be the first to comment!
+            </p>
+          ) : (
+            messages.map((msg) => (
+              <div
+                key={msg._id}
+                className={`p-3 rounded-lg ${
+                  msg.user._id === currentUser.id
+                    ? "bg-blue-500/20"
+                    : "bg-gray-700/50"
+                }`}
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <span className="font-semibold text-sm text-blue-400">
+                    {msg.user.name}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(msg.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-gray-200 text-sm">{msg.message}</p>
+                {msg.user._id === currentUser.id && (
+                  <button
+                    onClick={() => onDeleteMessage(msg._id, report.id)}
+                    className="text-xs text-red-400 hover:text-red-300 mt-1"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-700">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-1 p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              onKeyPress={(e) => e.key === "Enter" && onSendMessage(report.id)}
+            />
+            <button
+              onClick={() => onSendMessage(report.id)}
+              disabled={loading || !newMessage.trim()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition-colors disabled:opacity-50"
+            >
+              {loading ? "Sending..." : "Send"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
