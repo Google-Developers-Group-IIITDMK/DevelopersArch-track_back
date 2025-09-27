@@ -11,6 +11,8 @@ const ReportPage = () => {
     image: "",
   });
 
+  const [currentUser] = useState({ id: 1, name: "Current User" });
+
   const getButtonClass = (buttonText) => {
     const baseClass =
       "flex-1 text-center font-bold py-2 px-4 rounded-lg text-sm transition-colors";
@@ -43,6 +45,11 @@ const ReportPage = () => {
           "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
         status: "active",
         buttons: ["Message"],
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        authorButtons: ["Resolved", "Delete"],
+        isResolved: false,
+        resolvedAt: null,
       };
 
       setReports([...reports, report]);
@@ -64,7 +71,31 @@ const ReportPage = () => {
     setReports(
       reports.map((report) =>
         report.id === id
-          ? { ...report, buttons: ["Resolved", "Delete"] }
+          ? {
+              ...report,
+              status: "resolved",
+              isResolved: true,
+              resolvedAt: new Date().toLocaleDateString(),
+              authorButtons: report.authorButtons.filter(
+                (btn) => btn !== "Resolved"
+              ),
+            }
+          : report
+      )
+    );
+  };
+
+  const handleUnresolveReport = (id) => {
+    setReports(
+      reports.map((report) =>
+        report.id === id
+          ? {
+              ...report,
+              status: "active",
+              isResolved: false,
+              resolvedAt: null,
+              authorButtons: [...report.authorButtons, "Resolved"],
+            }
           : report
       )
     );
@@ -141,6 +172,9 @@ const ReportPage = () => {
                   index={index}
                   getButtonClass={getButtonClass}
                   handleButtonClick={handleButtonClick}
+                  currentUser={currentUser}
+                  handleResolveReport={handleResolveReport}
+                  handleUnresolveReport={handleUnresolveReport}
                 />
               ))}
             </div>
@@ -243,22 +277,60 @@ const CreateReportForm = ({
   );
 };
 
-const ReportCard = ({ report, index, getButtonClass, handleButtonClick }) => {
+const ReportCard = ({
+  report,
+  index,
+  getButtonClass,
+  handleButtonClick,
+  currentUser,
+  handleResolveReport,
+  handleUnresolveReport,
+}) => {
+  const isAuthor = report.authorId === currentUser.id;
+
   return (
-    <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700 hover:border-gray-600 transition-all duration-300">
+    <div
+      className={`bg-gray-800 rounded-xl shadow-lg overflow-hidden border transition-all duration-300 ${
+        report.isResolved
+          ? "border-green-500/30 hover:border-green-500/50"
+          : "border-gray-700 hover:border-gray-600"
+      }`}
+    >
       <div className="p-6 flex flex-col h-full">
         <div className="flex-1">
-          <span
-            className={`text-xs font-bold uppercase tracking-wider ${report.typeColor} mb-2 inline-block`}
-          >
-            {report.type}
-          </span>
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-xs font-bold uppercase tracking-wider ${report.typeColor} inline-block`}
+              >
+                {report.type}
+              </span>
+              {report.isResolved && (
+                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                  Resolved
+                </span>
+              )}
+            </div>
+            {isAuthor && (
+              <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded">
+                Your Report
+              </span>
+            )}
+          </div>
           <h3 className="text-lg font-bold text-gray-100 mb-3">
             {report.title}
           </h3>
           <p className="text-gray-400 text-sm leading-relaxed">
             {report.description}
           </p>
+          <div className="mt-2 space-y-1">
+            <p className="text-gray-500 text-xs">By: {report.authorName}</p>
+            {report.isResolved && report.resolvedAt && (
+              <p className="text-green-500 text-xs">
+                Resolved on: {report.resolvedAt}
+              </p>
+            )}
+          </div>
         </div>
         <div className="mt-6 flex gap-2">
           {report.buttons.map((buttonText) => (
@@ -270,12 +342,41 @@ const ReportCard = ({ report, index, getButtonClass, handleButtonClick }) => {
               {buttonText}
             </button>
           ))}
+
+          {isAuthor &&
+            report.authorButtons &&
+            report.authorButtons.map((buttonText) => (
+              <button
+                key={buttonText}
+                className={getButtonClass(buttonText)}
+                onClick={() => handleButtonClick(buttonText, report.id)}
+              >
+                {buttonText}
+              </button>
+            ))}
+
+          {isAuthor && report.isResolved && (
+            <button
+              className="flex-1 text-center font-bold py-2 px-4 rounded-lg text-sm transition-colors bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+              onClick={() => handleUnresolveReport(report.id)}
+            >
+              Reopen
+            </button>
+          )}
         </div>
       </div>
       <div
-        className="h-48 bg-cover bg-center"
+        className="h-48 bg-cover bg-center relative"
         style={{ backgroundImage: `url("${report.image}")` }}
-      ></div>
+      >
+        {report.isResolved && (
+          <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+            <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+              RESOLVED
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
