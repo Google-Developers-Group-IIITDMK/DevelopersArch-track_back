@@ -50,7 +50,7 @@ const ReportPage = () => {
         isResolved: false,
         resolvedAt: null,
         createdAt: item.createdAt,
-        messageCount: 0, // Initialize message count
+        messageCount: 0,
       }));
 
       setReports(transformedReports);
@@ -225,8 +225,22 @@ const ReportPage = () => {
       setReports(reports.filter((report) => report.id !== id));
       alert("Report deleted successfully!");
     } catch (err) {
-      setError("Failed to delete report: " + err.message);
-      console.error("Error deleting report:", err);
+      console.error("Full delete error:", err);
+
+      if (err.message.includes("401") || err.message.includes("Unauthorized")) {
+        setError("You are not authorized to delete this report.");
+      } else if (
+        err.message.includes("404") ||
+        err.message.includes("not found")
+      ) {
+        setError("Report not found. It may have already been deleted.");
+      } else if (err.message.includes("Failed to fetch")) {
+        setError("Network error. Please check your connection and try again.");
+      } else {
+        setError("Failed to delete report: " + err.message);
+      }
+
+      alert("Failed to delete report. Please try again.");
     }
   };
 
@@ -371,11 +385,10 @@ const ReportPage = () => {
                 <ReportCard
                   key={report.id}
                   report={report}
-                  getButtonClass={getButtonClass}
-                  handleButtonClick={handleButtonClick}
+                  onMessageClick={openMessagePanel}
+                  onDeleteReport={handleDeleteReport}
                   currentUser={currentUser}
-                  handleResolveReport={handleResolveReport}
-                  handleUnresolveReport={handleUnresolveReport}
+                  messageCount={report.messageCount || 0}
                 />
               ))}
             </div>
@@ -526,8 +539,30 @@ const CreateReportForm = ({
   );
 };
 
-const ReportCard = ({ report, onMessageClick, currentUser, messageCount }) => {
-  const isAuthor = report.authorId === currentUser.id;
+const ReportCard = ({
+  report,
+  onMessageClick,
+  currentUser,
+  messageCount,
+  onDeleteReport,
+}) => {
+  const isAuthor = currentUser && report.authorId === currentUser.id;
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this report?")) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await onDeleteReport(report.id);
+    } catch (err) {
+      console.error("Error deleting report:", err);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700 hover:border-gray-600 transition-all duration-300">
@@ -577,8 +612,12 @@ const ReportCard = ({ report, onMessageClick, currentUser, messageCount }) => {
             💬 Message
           </button>
           {isAuthor && (
-            <button className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-center font-bold py-2 px-4 rounded-lg text-sm transition-colors">
-              Delete
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-center font-bold py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Delete"}
             </button>
           )}
         </div>

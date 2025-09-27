@@ -143,11 +143,24 @@ export const itemsAPI = {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to delete item");
+      let errorMessage = `HTTP error! status: ${response.status}`;
+
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (parseError) {
+        try {
+          const text = await response.text();
+          console.error("Server response (non-JSON):", text.substring(0, 200));
+        } catch (textError) {
+          console.error("Could not read response text:", textError);
+        }
+      }
+
+      throw new Error(errorMessage);
     }
 
-    return response.json();
+    return await response.json();
   },
 };
 
