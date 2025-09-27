@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 
 const ReportPage = () => {
   const [reports, setReports] = useState([]);
@@ -11,7 +12,7 @@ const ReportPage = () => {
     image: "",
   });
 
-  const [currentUser] = useState({ id: 1, name: "Current User" });
+  const { currentUser, logout } = useAuth();
 
   const getButtonClass = (buttonText) => {
     const baseClass =
@@ -131,6 +132,17 @@ const ReportPage = () => {
           >
             Reports
           </Link>
+          {currentUser && (
+            <div className="flex items-center gap-4">
+              <span className="text-gray-300">Welcome, {currentUser.name}</span>
+              <button
+                onClick={logout}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </nav>
       </header>
 

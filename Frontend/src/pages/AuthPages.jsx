@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useAuth } from "./AuthContext.jsx"
 import { authAPI, storage } from "../services/api.js";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -11,6 +13,14 @@ export default function AuthPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const logout = () => {
+    setCurrentUser(null);
+    storage.removeToken();
+    window.location.href = "/";
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -51,20 +61,24 @@ export default function AuthPage() {
 
 
         storage.setToken(response.token);
+        login(response.user); 
 
         console.log("Login successful:", response);
 
-        alert(`Welcome back, ${response.user.name}!`);
+        const from = location.state?.from?.pathname || "/reports";
+        navigate(from, { replace: true });
       } else {
         const { name, email, password } = formData;
         const response = await authAPI.register({ name, email, password });
 
         storage.setToken(response.token);
+        login(response.user);
 
         console.log("Registration successful:", response);
         alert(`Account created successfully! Welcome, ${response.user.name}`);
 
         handleFormSwitch(true);
+        navigate("/reports", { replace: true });
       }
     } catch (err) {
       setError(err.message);

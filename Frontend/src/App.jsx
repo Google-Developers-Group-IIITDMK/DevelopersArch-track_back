@@ -1,23 +1,32 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./pages/AuthContext";
 import HomePage from "./pages/HomePage";
 import AboutPage from "./pages/AboutPage";
-import AuthPage from "./pages/AuthPages";
 import ReportPage from "./pages/ReportPage";
+import AuthPage from "./pages/AuthPages";
+import ProtectedRoute from "./pages/ProtectedRoute";
 
-const App = () => {
+function App() {
   return (
-    <div>
-      <BrowserRouter>
+    <AuthProvider>
+      <Router>
         <Routes>
-          <Route path="/" element={<HomePage/>} />
-          <Route path="/about" element={<AboutPage/>} />
-          <Route path="/auth" element={<AuthPage/>} />
-          <Route path="/reports" element={<ReportPage/>} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <ReportPage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
-      </BrowserRouter>
-    </div>
+      </Router>
+    </AuthProvider>
   );
-};
+}
 
 export default App;
