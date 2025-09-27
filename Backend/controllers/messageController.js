@@ -34,7 +34,10 @@ export const createMessage = async (req, res) => {
 
     await newMessage.save();
     await newMessage.populate("user", "name email");
-
+    await ItemReport.findByIdAndUpdate(reportId, {
+      $inc: { messageCount: 1 },
+    });
+    
     res.status(201).json({
       message: "Message sent successfully",
       message: newMessage,
