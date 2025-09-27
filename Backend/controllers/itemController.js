@@ -1,8 +1,12 @@
 import ItemReport from "../models/ItemReport.js";
+import cloudinary from "../config/cloudinary.js";
+
 
 export const createItem = async (req, res) => {
   try {
     const { title, description, location, type } = req.body;
+    const image = req.file?.path;
+    const imageId = req.file?.filename;
 
     const newItem = new ItemReport({
       title,
@@ -10,6 +14,8 @@ export const createItem = async (req, res) => {
       location,
       type,
       user: req.user.id,
+      image,
+      imageId,
     });
 
     await newItem.save();
@@ -61,6 +67,12 @@ export const updateItem = async (req, res) => {
     if (!item) return res.status(404).json({ message: "Item not found" });
     if (item.user.toString() !== req.user.id) return res.status(401).json({ message: "Unauthorized" });
 
+    if (req.file) {
+      if (item.imageId) await cloudinary.uploader.destroy(item.imageId);
+      item.image = req.file.path;
+      item.imageId = req.file.filename;
+    }
+
     Object.assign(item, req.body);
     await item.save();
     res.json({ message: "Item updated", item });
@@ -74,6 +86,8 @@ export const deleteItem = async (req, res) => {
     const item = await ItemReport.findById(req.params.id);
     if (!item) return res.status(404).json({ message: "Item not found" });
     if (item.user.toString() !== req.user.id) return res.status(401).json({ message: "Unauthorized" });
+
+    if (item.imageId) await cloudinary.uploader.destroy(item.imageId);
 
     await item.remove();
     res.json({ message: "Item deleted" });
