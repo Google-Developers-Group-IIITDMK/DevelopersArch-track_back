@@ -85,7 +85,7 @@ export const itemsAPI = {
     return response.json();
   },
 
-  createItem: async (itemData) => {
+  createItem: async (formData) => {
     const token = storage.getToken();
     if (!token) {
       throw new Error("No token found");
@@ -94,10 +94,9 @@ export const itemsAPI = {
     const response = await fetch(`${API_BASE_URL}/items`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(itemData),
+      body: formData,
     });
 
     if (!response.ok) {
@@ -108,7 +107,7 @@ export const itemsAPI = {
     return response.json();
   },
 
-  updateItem: async (id, itemData) => {
+  updateItem: async (id, formData) => {
     const token = storage.getToken();
     if (!token) {
       throw new Error("No token found");
@@ -117,10 +116,9 @@ export const itemsAPI = {
     const response = await fetch(`${API_BASE_URL}/items/${id}`, {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(itemData),
+      body: formData,
     });
 
     if (!response.ok) {
@@ -147,6 +145,65 @@ export const itemsAPI = {
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to delete item");
+    }
+
+    return response.json();
+  },
+};
+
+export const messagesAPI = {
+  getMessages: async (reportId) => {
+    const response = await fetch(`${API_BASE_URL}/messages/report/${reportId}`);
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch messages");
+    }
+
+    return response.json();
+  },
+
+  sendMessage: async (reportId, messageData) => {
+    const token = storage.getToken();
+    if (!token) {
+      throw new Error("No token found");
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/messages/report/${reportId}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(messageData),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to send message");
+    }
+
+    return response.json();
+  },
+
+  deleteMessage: async (messageId) => {
+    const token = storage.getToken();
+    if (!token) {
+      throw new Error("No token found");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/messages/${messageId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to delete message");
     }
 
     return response.json();
