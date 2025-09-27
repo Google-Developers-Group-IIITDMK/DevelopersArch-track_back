@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import { itemsAPI, messageAPI } from "../services/api";
+import { itemsAPI, messagesAPI } from "../services/api";
 
 const ReportPage = () => {
   const [reports, setReports] = useState([]);
