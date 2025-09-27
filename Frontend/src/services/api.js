@@ -35,20 +35,121 @@ export const authAPI = {
     return await response.json();
   },
 
-  getProfile: async (token) => {
+  getMe: async () => {
+    const token = storage.getToken();
+    if (!token) {
+      throw new Error("No token found");
+    }
+
     const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: "GET",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
     });
 
     if (!response.ok) {
-      throw new Error("Failed to fetch user profile");
+      throw new Error("Failed to fetch user data");
     }
 
-    return await response.json();
+    return response.json();
+  },
+};
+
+export const itemsAPI = {
+  getItems: async () => {
+    const response = await fetch(`${API_BASE_URL}/items`);
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch items");
+    }
+
+    return response.json();
+  },
+
+  getMyItems: async () => {
+    const token = storage.getToken();
+    if (!token) {
+      throw new Error("No token found");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/items/my-items`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user items");
+    }
+
+    return response.json();
+  },
+
+  createItem: async (itemData) => {
+    const token = storage.getToken();
+    if (!token) {
+      throw new Error("No token found");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/items`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(itemData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to create item");
+    }
+
+    return response.json();
+  },
+
+  updateItem: async (id, itemData) => {
+    const token = storage.getToken();
+    if (!token) {
+      throw new Error("No token found");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/items/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(itemData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to update item");
+    }
+
+    return response.json();
+  },
+
+  deleteItem: async (id) => {
+    const token = storage.getToken();
+    if (!token) {
+      throw new Error("No token found");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/items/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to delete item");
+    }
+
+    return response.json();
   },
 };
 
