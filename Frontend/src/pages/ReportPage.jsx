@@ -1,18 +1,64 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { itemsAPI } from "../services/api";
 
 const ReportPage = () => {
   const [reports, setReports] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newReport, setNewReport] = useState({
-    type: "Lost",
+    type: "lost",
     title: "",
     description: "",
-    image: "",
+    location: "",
+    image: null,
   });
+  const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const { currentUser, logout } = useAuth();
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const fetchReports = async () => {
+    try {
+      setFetchLoading(true);
+      const data = await itemsAPI.getItems();
+
+      const transformedReports = data.map((item) => ({
+        id: item._id,
+        type: item.type.charAt(0).toUpperCase() + item.type.slice(1),
+        typeColor:
+          item.type === "lost"
+            ? "text-blue-600 dark:text-blue-400"
+            : "text-green-600 dark:text-green-400",
+        title: item.title,
+        description: item.description,
+        location: item.location,
+        image:
+          item.image ||
+          "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
+        status: "active",
+        buttons: ["Message"],
+        authorId: item.user._id,
+        authorName: item.user.name,
+        authorButtons: ["Resolved", "Delete"],
+        isResolved: false,
+        resolvedAt: null,
+        createdAt: item.createdAt,
+      }));
+
+      setReports(transformedReports);
+    } catch (err) {
+      setError("Failed to fetch reports: " + err.message);
+      console.error("Error fetching reports:", err);
+    } finally {
+      setFetchLoading(false);
+    }
+  };
 
   const getButtonClass = (buttonText) => {
     const baseClass =
@@ -30,79 +76,127 @@ const ReportPage = () => {
     }
   };
 
-  const handleCreateReport = () => {
-    if (newReport.title && newReport.description) {
-      const report = {
-        id: Date.now(),
-        type: newReport.type,
-        typeColor:
-          newReport.type === "Lost"
-            ? "text-blue-600 dark:text-blue-400"
-            : "text-green-600 dark:text-green-400",
-        title: newReport.title,
-        description: newReport.description,
-        image:
-          newReport.image ||
-          "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
-        status: "active",
-        buttons: ["Message"],
-        authorId: currentUser.id,
-        authorName: currentUser.name,
-        authorButtons: ["Resolved", "Delete"],
-        isResolved: false,
-        resolvedAt: null,
-      };
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        setError("Please select an image file");
+        return;
+      }
 
-      setReports([...reports, report]);
-      setNewReport({
-        type: "Lost",
-        title: "",
-        description: "",
-        image: "",
-      });
-      setShowCreateForm(false);
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image size should be less than 5MB");
+        return;
+      }
+
+      setNewReport({ ...newReport, image: file });
     }
   };
 
-  const handleDeleteReport = (id) => {
-    setReports(reports.filter((report) => report.id !== id));
+  const handleCreateReport = async () => {
+    if (!newReport.title || !newReport.description || !newReport.location) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const formData = new FormData();
+      formData.append("title", newReport.title);
+      formData.append("description", newReport.description);
+      formData.append("location", newReport.location);
+      formData.append("type", newReport.type);
+
+      if (newReport.image) {
+        formData.append("image", newReport.image);
+      }
+
+      const response = await itemsAPI.createItem(formData);
+
+      await fetchReports();
+
+      setNewReport({
+        type: "lost",
+        title: "",
+        description: "",
+        location: "",
+        image: null,
+      });
+      setShowCreateForm(false);
+
+      alert("Report created successfully!");
+    } catch (err) {
+      setError("Failed to create report: " + err.message);
+      console.error("Error creating report:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleResolveReport = (id) => {
-    setReports(
-      reports.map((report) =>
-        report.id === id
-          ? {
-              ...report,
-              status: "resolved",
-              isResolved: true,
-              resolvedAt: new Date().toLocaleDateString(),
-              authorButtons: report.authorButtons.filter(
-                (btn) => btn !== "Resolved"
-              ),
-            }
-          : report
-      )
-    );
+  const handleDeleteReport = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this report?")) {
+      return;
+    }
+
+    try {
+      await itemsAPI.deleteItem(id);
+      setReports(reports.filter((report) => report.id !== id));
+      alert("Report deleted successfully!");
+    } catch (err) {
+      setError("Failed to delete report: " + err.message);
+      console.error("Error deleting report:", err);
+    }
   };
 
-  const handleUnresolveReport = (id) => {
-    setReports(
-      reports.map((report) =>
-        report.id === id
-          ? {
-              ...report,
-              status: "active",
-              isResolved: false,
-              resolvedAt: null,
-              authorButtons: [...report.authorButtons, "Resolved"],
-            }
-          : report
-      )
-    );
+  const handleResolveReport = async (id) => {
+    try {
+      setReports(
+        reports.map((report) =>
+          report.id === id
+            ? {
+                ...report,
+                status: "resolved",
+                isResolved: true,
+                resolvedAt: new Date().toLocaleDateString(),
+                authorButtons: report.authorButtons.filter(
+                  (btn) => btn !== "Resolved"
+                ),
+              }
+            : report
+        )
+      );
+      alert("Report marked as resolved!");
+    } catch (err) {
+      setError("Failed to resolve report: " + err.message);
+      console.error("Error resolving report:", err);
+    }
   };
 
-  const handleButtonClick = (buttonText, reportId) => {
+  const handleUnresolveReport = async (id) => {
+    try {
+      setReports(
+        reports.map((report) =>
+          report.id === id
+            ? {
+                ...report,
+                status: "active",
+                isResolved: false,
+                resolvedAt: null,
+                authorButtons: [...report.authorButtons, "Resolved"],
+              }
+            : report
+        )
+      );
+      alert("Report reopened!");
+    } catch (err) {
+      setError("Failed to reopen report: " + err.message);
+      console.error("Error reopening report:", err);
+    }
+  };
+
+  const handleButtonClick = async (buttonText, reportId) => {
     if (buttonText === "Delete") {
       handleDeleteReport(reportId);
     } else if (buttonText === "Resolved") {
@@ -113,25 +207,27 @@ const ReportPage = () => {
   return (
     <div className="min-h-screen bg-black text-gray-100">
       <header className="fixed top-0 left-0 right-0 z-50 p-4 bg-black backdrop-blur-sm border-b border-gray-700">
-        <nav className="flex justify-center items-center min-h-[10vh]">
-          <Link
-            to="/"
-            className="relative text-lg text-gray-300 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
-          >
-            Home
-          </Link>
-          <Link
-            to="/about"
-            className="relative text-lg text-gray-300 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
-          >
-            About
-          </Link>
-          <Link
-            to="/reports"
-            className="relative text-lg text-cyan-400 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-300"
-          >
-            Reports
-          </Link>
+        <nav className="flex justify-between items-center min-h-[10vh]">
+          <div className="flex">
+            <Link
+              to="/"
+              className="relative text-lg text-gray-300 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
+            >
+              Home
+            </Link>
+            <Link
+              to="/about"
+              className="relative text-lg text-gray-300 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-400"
+            >
+              About
+            </Link>
+            <Link
+              to="/reports"
+              className="relative text-lg text-cyan-400 px-5 py-2 mx-2 transition-all duration-500 hover:text-cyan-300"
+            >
+              Reports
+            </Link>
+          </div>
           {currentUser && (
             <div className="flex items-center gap-4">
               <span className="text-gray-300">Welcome, {currentUser.name}</span>
@@ -148,14 +244,21 @@ const ReportPage = () => {
 
       <main className="pt-24 px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-7xl mx-auto">
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+              {error}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <h2 className="text-3xl font-bold text-gray-100">Reports</h2>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="flex items-center justify-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-700 px-4 py-3 text-sm font-bold text-white shadow-lg transition-colors"
+              disabled={loading}
+              className="flex items-center justify-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-700 px-4 py-3 text-sm font-bold text-white shadow-lg transition-colors disabled:opacity-50"
             >
               <span>+</span>
-              <span>Create Report</span>
+              <span>{loading ? "Loading..." : "Create Report"}</span>
             </button>
           </div>
 
@@ -165,10 +268,17 @@ const ReportPage = () => {
               setNewReport={setNewReport}
               handleCreateReport={handleCreateReport}
               setShowCreateForm={setShowCreateForm}
+              handleFileChange={handleFileChange}
+              loading={loading}
             />
           )}
 
-          {reports.length === 0 ? (
+          {fetchLoading ? (
+            <div className="text-center py-16">
+              <div className="text-gray-400 text-6xl mb-4">⏳</div>
+              <p className="text-gray-400 text-lg">Loading reports...</p>
+            </div>
+          ) : reports.length === 0 ? (
             <div className="text-center py-16">
               <div className="text-gray-400 text-6xl mb-4">📝</div>
               <p className="text-gray-400 text-lg">
@@ -177,11 +287,10 @@ const ReportPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
-              {reports.map((report, index) => (
+              {reports.map((report) => (
                 <ReportCard
                   key={report.id}
                   report={report}
-                  index={index}
                   getButtonClass={getButtonClass}
                   handleButtonClick={handleButtonClick}
                   currentUser={currentUser}
@@ -202,6 +311,8 @@ const CreateReportForm = ({
   setNewReport,
   handleCreateReport,
   setShowCreateForm,
+  handleFileChange,
+  loading,
 }) => {
   return (
     <div className="bg-gray-800 rounded-xl shadow-2xl p-6 mb-8 border border-gray-700">
@@ -211,7 +322,7 @@ const CreateReportForm = ({
       <div className="space-y-6">
         <div>
           <label className="block text-sm font-medium mb-3 text-gray-300">
-            Type
+            Type *
           </label>
           <select
             value={newReport.type}
@@ -219,15 +330,16 @@ const CreateReportForm = ({
               setNewReport({ ...newReport, type: e.target.value })
             }
             className="w-full p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            disabled={loading}
           >
-            <option value="Lost">Lost</option>
-            <option value="Found">Found</option>
+            <option value="lost">Lost</option>
+            <option value="found">Found</option>
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-3 text-gray-300">
-            Title
+            Title *
           </label>
           <input
             type="text"
@@ -235,51 +347,83 @@ const CreateReportForm = ({
             onChange={(e) =>
               setNewReport({ ...newReport, title: e.target.value })
             }
-            className="w-full p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:border-red-500 focus:ring-2 focus:ring-blue-500/20"
+            className="w-full p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             placeholder="Enter item title"
+            disabled={loading}
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-3 text-gray-300">
-            Description
+            Location *
+          </label>
+          <input
+            type="text"
+            value={newReport.location}
+            onChange={(e) =>
+              setNewReport({ ...newReport, location: e.target.value })
+            }
+            className="w-full p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            placeholder="Where was it lost/found?"
+            disabled={loading}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-3 text-gray-300">
+            Description *
           </label>
           <textarea
             value={newReport.description}
             onChange={(e) =>
               setNewReport({ ...newReport, description: e.target.value })
             }
-            className="w-full p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:border-red-500 focus:ring-2 focus:ring-blue-500/20"
+            className="w-full p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             placeholder="Enter description"
             rows="4"
+            disabled={loading}
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-3 text-gray-300">
-            Image URL (Optional)
+            Image (Optional)
           </label>
-          <input
-            type="text"
-            value={newReport.image}
-            onChange={(e) =>
-              setNewReport({ ...newReport, image: e.target.value })
-            }
-            className="w-full p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:border-red-500 focus:ring-2 focus:ring-blue-500/20"
-            placeholder="Enter image URL"
-          />
+          <div className="flex items-center gap-4">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="w-full p-3 border border-gray-600 rounded-lg bg-gray-700 text-gray-100 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+              disabled={loading}
+            />
+            {newReport.image && (
+              <div className="flex-shrink-0">
+                <img
+                  src={URL.createObjectURL(newReport.image)}
+                  alt="Preview"
+                  className="w-16 h-16 object-cover rounded"
+                />
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            Supported formats: JPG, JPEG, PNG. Max size: 5MB
+          </p>
         </div>
 
         <div className="flex gap-3 pt-2">
           <button
             onClick={handleCreateReport}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-bold transition-colors"
+            disabled={loading}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-bold transition-colors disabled:opacity-50"
           >
-            Create Report
+            {loading ? "Creating..." : "Create Report"}
           </button>
           <button
             onClick={() => setShowCreateForm(false)}
-            className="flex-1 bg-gray-600 hover:bg-gray-700 text-gray-300 py-3 px-6 rounded-lg font-bold transition-colors"
+            disabled={loading}
+            className="flex-1 bg-gray-600 hover:bg-gray-700 text-gray-300 py-3 px-6 rounded-lg font-bold transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
@@ -291,7 +435,6 @@ const CreateReportForm = ({
 
 const ReportCard = ({
   report,
-  index,
   getButtonClass,
   handleButtonClick,
   currentUser,
@@ -332,6 +475,7 @@ const ReportCard = ({
           <h3 className="text-lg font-bold text-gray-100 mb-3">
             {report.title}
           </h3>
+          <p className="text-gray-400 text-sm mb-2">{report.location}</p>
           <p className="text-gray-400 text-sm leading-relaxed">
             {report.description}
           </p>
